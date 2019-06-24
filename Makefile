@@ -6,13 +6,7 @@ check:
 	./rebar eunit skip_deps=true
 
 rundists:
-	/usr/bin/erl -name test0@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test1@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test2@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test3@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test4@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test5@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test6@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test7@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test8@localhost.localdomain -cookie testcookie -detached
-	/usr/bin/erl -name test9@localhost.localdomain -cookie testcookie -detached
+	number=1 ; while [[ $$number -le 100 ]] ; do \
+		/usr/bin/erl -name test$$number@localhost.localdomain -cookie testcookie -detached ; \
+		((number = number + 1)) ; \
+	done

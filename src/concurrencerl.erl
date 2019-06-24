@@ -15,7 +15,7 @@
                     }).
 
 generate_node_names() ->
-	[ list_to_atom(io_lib:format("test~b@localhost.localdomain", [X])) || X <- lists:seq(0,9) ].
+	[ list_to_atom(io_lib:format("test~b@localhost.localdomain", [X])) || X <- lists:seq(1,100) ].
 
 get_nodes(Which) ->
     get_nodes(ets:first(sys_dist), Which).
@@ -52,24 +52,37 @@ remove([N|Nodes], Processed) ->
 	timer:sleep(100),
 	remove(Nodes, [Node|Processed]).
 
+rm_node([]) ->
+	ok;
+rm_node([N|Nodes]) ->
+	timer:sleep(10),
+	rpc:cast(N, erlang, halt, []),
+	rm_node(Nodes).
+
 get_infos() ->
 	case catch net_kernel:nodes_info() of
+		{ok, []} -> error_logger:error_msg("T: <empty>~n", []);
 		{ok, _} -> ok;
 		Any -> error_logger:error_msg("T: ~w~n", [Any])
 	end,
+	%error_logger:error_msg("T: ~p~n", [catch net_kernel:nodes_info()]),
 	timer:sleep(10),
 	get_infos().
 
 substitution_test() ->
-	meck:new(net_kernel, [unstick, passthrough]),
-	meck:expect(net_kernel, init, fun meck_net_kernel:init/1),
+%	meck:new(net_kernel, [unstick, passthrough]),
+%	meck:expect(net_kernel, init, fun meck_net_kernel:init/1),
 
 	net_kernel:start(['foobar@localhost.localdomain', longnames]),
 
 	NodeNames = concurrencerl:generate_node_names(),
 	[ net_adm:ping(N) || N <- NodeNames ],
 
-	spawn(fun() -> remove(ets:tab2list(sys_dist), []) end),
+	%[ rpc:cast(N, erlang, halt, []) || N <- NodeNames ],
+
+	%spawn(fun() -> remove(ets:tab2list(sys_dist), []) end),
+	spawn(fun() -> rm_node(NodeNames) end),
+
 	get_infos(),
 
 	ok.
