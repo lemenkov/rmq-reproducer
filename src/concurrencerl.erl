@@ -14,18 +14,8 @@
                      type           %% normal | hidden
                     }).
 
-% [{connection,'test1@localhost.localdomain', {1,#Ref<0.887588218.3454402561.231403>}, up,<0.89.0>,undefined, {net_address,{{127,0,0,1},33371}, "localhost.localdomain",tcp,inet}, [],normal}]
-
-generate_connections() ->
-	[	#connection{
-			node = list_to_atom(io_lib:format("test~b@localhost.localdomain", [X])),
-			conn_id = {1, make_ref()},
-			state = up,
-			owner = self(),
-			address = #net_address{address = {{127,0,0,1}, 33333 + X}, host = "localhost.localdomain", protocol = tcp, family = inet},
-			waiting = [],
-			type = hidden
-		} || X <- lists:seq(1,50)].
+generate_node_names() ->
+	[ list_to_atom(io_lib:format("test~b@localhost.localdomain", [X])) || X <- lists:seq(0,9) ].
 
 get_nodes(Which) ->
     get_nodes(ets:first(sys_dist), Which).
@@ -49,23 +39,25 @@ add([], Nodes) ->
 	remove(Nodes, []);
 add([N|Nodes], Processed) ->
 	ets:insert(sys_dist, N),
-	%error_logger:error_msg("A: ~w~n", [N]),
-	timer:sleep(500),
+	%error_logger:error_msg("A: ~p~n", [N]),
+	timer:sleep(100),
 	add(Nodes, [N|Processed]).
 
 remove([], Nodes) ->
 	timer:sleep(100),
 	add(Nodes, []);
 remove([N|Nodes], Processed) ->
-	ets:insert(sys_dist, N),
-	%error_logger:error_msg("R: ~w~n", [N]),
-	timer:sleep(500),
-	remove(Nodes, [N|Processed]).
+	[Node] = (catch ets:take(sys_dist, N#connection.node)),
+	%error_logger:error_msg("R: ~p (~p)~n", [Node, N]),
+	timer:sleep(100),
+	remove(Nodes, [Node|Processed]).
 
 get_infos() ->
-	error_logger:error_msg("T: ~w~n", [catch net_kernel:nodes_info()]),
-	%error_logger:error_msg("T: ~w~n", [ets:select(sys_dist, [{#connection{node = '$1', _ = '_'}, [], ['$1']}])]),
-	timer:sleep(500),
+	case catch net_kernel:nodes_info() of
+		{ok, _} -> ok;
+		Any -> error_logger:error_msg("T: ~w~n", [Any])
+	end,
+	timer:sleep(10),
 	get_infos().
 
 substitution_test() ->
@@ -73,11 +65,11 @@ substitution_test() ->
 	meck:expect(net_kernel, init, fun meck_net_kernel:init/1),
 
 	net_kernel:start(['foobar@localhost.localdomain', longnames]),
-	Nodes = concurrencerl:generate_connections(),
 
-	spawn(fun() -> add(Nodes, []) end),
+	NodeNames = concurrencerl:generate_node_names(),
+	[ net_adm:ping(N) || N <- NodeNames ],
+
+	spawn(fun() -> remove(ets:tab2list(sys_dist), []) end),
 	get_infos(),
 
-    ok.
-
-%% End of Module.
+	ok.
